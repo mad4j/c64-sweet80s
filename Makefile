@@ -1,6 +1,8 @@
 
 OUT_NAME=sweet80s
 
+KOA_LIST := ${patsubst %.koa,%,$(wildcard *.koa)}
+
 .PHONY: all d64 prg clean
 
 all: prg d64
@@ -10,9 +12,11 @@ prg:
 	rm -f *.o
 
 d64:
+	@echo $(KOA_LIST)
 	c1541 -format $(OUT_NAME),AA d64 $(OUT_NAME).d64
-	c1541 -attach $(OUT_NAME).d64 -write  $(OUT_NAME).prg $(OUT_NAME)
+	c1541 -attach $(OUT_NAME).d64 -write $(OUT_NAME).prg $(OUT_NAME)
 	c1541 -attach $(OUT_NAME).d64 -write ylenia.koa ylenia
+	c1541 -attach $(OUT_NAME).d64 -write marta.koa marta
 	c1541 -attach $(OUT_NAME).d64 -dir
 
 clean:

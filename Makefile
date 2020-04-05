@@ -20,6 +20,7 @@ d64:
 	c1541 -attach $(OUT_NAME).d64 -write 'ylenia2.koa' '!ylenia2'
 	c1541 -attach $(OUT_NAME).d64 -write 'giada.koa' '!giada'
 	c1541 -attach $(OUT_NAME).d64 -write 'marika.koa' '!marika'
+	c1541 -attach $(OUT_NAME).d64 -write 'ionela1.koa' '!ionela1'
 	c1541 -attach $(OUT_NAME).d64 -dir
 
 clean:

@@ -15,7 +15,9 @@ d64:
 	@echo $(KOA_LIST)
 	c1541 -format $(OUT_NAME),AA d64 $(OUT_NAME).d64
 	c1541 -attach $(OUT_NAME).d64 -write $(OUT_NAME).prg $(OUT_NAME)
-	c1541 -attach $(OUT_NAME).d64 -write 'ylenia.koa' '!ylenia'
+	c1541 -attach $(OUT_NAME).d64 -write 'marta.koa' '!marta'
+	c1541 -attach $(OUT_NAME).d64 -write 'ylenia1.koa' '!ylenia1'
+	c1541 -attach $(OUT_NAME).d64 -write 'ylenia2.koa' '!ylenia2'
 	c1541 -attach $(OUT_NAME).d64 -write 'giada.koa' '!giada'
 	c1541 -attach $(OUT_NAME).d64 -write 'marika.koa' '!marika'
 	c1541 -attach $(OUT_NAME).d64 -dir

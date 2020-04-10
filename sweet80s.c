@@ -142,7 +142,7 @@ void initIcons()
     /* hide sprite 0 */
     VIC.spr_ena = 0x00;
 
-    /* sprite 0 data at 12288 */
+    /* update sprite 0 data memory pointer */
     POKE(SPRITE_DATA_PTR_RAM_ADDRESS, SPRITE_0_MEMORY_SLOT);
 
     /* sprite 0 data */
@@ -156,7 +156,7 @@ void initIcons()
     VIC.spr_mcolor0 = COLOR_YELLOW;
 
     /* sprite 0 position */
-    VIC.spr_hi_x = (SPRITE_0_POS_X & 0x100) >> 8; 
+    VIC.spr_hi_x |= (SPRITE_0_POS_X & 0x100) >> 8; 
     VIC.spr0_x = SPRITE_0_POS_X & 0xFF;
     VIC.spr0_y = SPRITE_0_POS_Y;
 }

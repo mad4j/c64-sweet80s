@@ -1,6 +1,6 @@
 /**
  * sweet80s.c
- * daniele.olmisani@gmail.com
+ * https://github.com/mad4j/c64-sweet80s
  * 
  * compile using:
  *     cl65 -t c64 -O sweet80sc -o sweet80s.prg
@@ -20,29 +20,48 @@
 #include <errno.h>
 
 
-/* KOALA image structure */
-#define BITMAP_FILE_OFFSET        0
-#define BITMAP_FILE_LENGHT     8000
-#define SCREEN_FILE_OFFSET     8000
-#define SCREEN_FILE_LENGTH     1000
-#define COLMAP_FILE_OFFSET     9000
-#define COLMAP_FILE_LENGTH     1000
-#define BKGCOL_FILE_OFFSET    10000
-#define BKGCOL_FILE_LENGTH        1
+/* KOALA image file format */
+#define KAOLA_BITMAP_OFFSET             0
+#define KAOLA_BITMAP_LENGHT          8000
+#define KAOLA_SCREEN_OFFSET          8000
+#define KAOLA_SCREEN_LENGTH          1000
+#define KAOLA_COLMAP_OFFSET          9000
+#define KAOLA_COLMAP_LENGTH          1000
+#define KAOLA_BKGCOL_OFFSET         10000
+#define KAOLA_BKGCOL_LENGTH             1
 
-/* */
-#define BITMAP_ADDRESS        ((void*)0x2000)
-#define SCREEN_ADDRESS        ((void*)0x0400)
-#define COLMAP_ADDRESS        ((void*)0xD800)
+/* KOALA RAM address */
+#define KAOLA_RAM_ADDRESS           ((uint8_t*)0x6000)
+
+/* Multi-color RAM addresses */
+#define BITMAP_RAM_ADDRESS          ((uint8_t*)0x2000)
+#define SCREEN_RAM_ADDRESS          ((uint8_t*)0x0400)
+#define COLMAP_RAM_ADDRESS          ((uint8_t*)0xD800)
+
+/* Sprite data pointers base address*/
+#define SPRITE_DATA_PTR_RAM_ADDRESS (SCREEN_RAM_ADDRESS+1016)
+
+/* Sprite related infomration */
+#define SPRITE_MEMORY_SLOT_SIZE       64
+
+#define SPRITE_0_MEMORY_SLOT          13
+#define SPRITE_0_POS_X               306
+#define SPRITE_0_POS_Y               220
 
 
-#define DEVICE_NUM             8
+/* default disk drive */
+#define DEVICE_NUM                     8
 
-#define MAX_FILES              25
+/* file system constants */
+#define MAX_FILES                     25
+#define MAX_FILE_NAME_LEN             17
 
-char files[MAX_FILES][17];
+/* names of image files on disk */
+char files[MAX_FILES][MAX_FILE_NAME_LEN];
 uint8_t filesIndex = 0;
 
+
+/* FLOPPY Icon sprite data */
 unsigned char floppy_bin[] = {
   0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x56, 0x55, 0x55, 0x56,
   0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x69, 0x55,
@@ -54,6 +73,9 @@ unsigned char floppy_bin[] = {
 unsigned int floppy_bin_len = 64;
 
 
+/**
+ * initialize multi-color graphic mode
+ */
 void initGraphics()
 {
     /* enable bitmap mode */
@@ -72,48 +94,59 @@ void initGraphics()
     VIC.bordercolor = COLOR_BLACK;
 
     /* clear bitmap area */
-    memset(BITMAP_ADDRESS, 0x00, BITMAP_FILE_LENGHT);
+    memset(BITMAP_RAM_ADDRESS, 0x00, KAOLA_BITMAP_LENGHT);
 }
 
 
+/**
+ * load an image stored using KOALA file format
+ */
 uint32_t loadKOA(const char* fileName, uint8_t device)
 {
     int32_t result = 0;
-    result = cbm_load(fileName, device ,(void*)0);
+
+    /* load image data at specific address ignoring embedded PRG info */
+    result = cbm_load(fileName, device, KAOLA_RAM_ADDRESS);
 
     return (result == 0) ? _oserror : 0;
 }
 
 
-void renderKOA(uint8_t* imageBuffer) 
+/**
+ * display a KAOLA image store in RAM
+ */
+void renderKOA() 
 {
     /* load bitmap data */
-    memcpy(BITMAP_ADDRESS, imageBuffer+BITMAP_FILE_OFFSET, BITMAP_FILE_LENGHT);
+    memcpy(BITMAP_RAM_ADDRESS, KAOLA_RAM_ADDRESS+KAOLA_BITMAP_OFFSET, KAOLA_BITMAP_LENGHT);
 
     /* load screen data */
-    memcpy(SCREEN_ADDRESS, imageBuffer+SCREEN_FILE_OFFSET, SCREEN_FILE_LENGTH);
+    memcpy(SCREEN_RAM_ADDRESS, KAOLA_RAM_ADDRESS+KAOLA_SCREEN_OFFSET, KAOLA_SCREEN_LENGTH);
 
     /* load color map */
-    memcpy(COLMAP_ADDRESS, imageBuffer+COLMAP_FILE_OFFSET, COLMAP_FILE_LENGTH);
+    memcpy(COLMAP_RAM_ADDRESS, KAOLA_RAM_ADDRESS+KAOLA_COLMAP_OFFSET, KAOLA_COLMAP_LENGTH);
 
     /* load background colour */
-    VIC.bgcolor0 = imageBuffer[BKGCOL_FILE_OFFSET];
+    VIC.bgcolor0 = KAOLA_RAM_ADDRESS[KAOLA_BKGCOL_OFFSET];
 
     /* set black border */ 
     VIC.bordercolor = COLOR_BLACK;
 }
 
 
+/**
+ * configure and initialize icon data
+ */
 void initIcons()
 {
     /* hide sprite 0 */
     VIC.spr_ena = 0x00;
 
     /* sprite 0 data at 12288 */
-    POKE(2040, 13);
+    POKE(SPRITE_DATA_PTR_RAM_ADDRESS, SPRITE_0_MEMORY_SLOT);
 
     /* sprite 0 data */
-    memcpy((void*)832, floppy_bin, floppy_bin_len);
+    memcpy(SPRITE_MEMORY_SLOT_SIZE*SPRITE_0_MEMORY_SLOT, floppy_bin, floppy_bin_len);
 
     /* sprite 0 in multi-color */
     VIC.spr_mcolor = 0x01;
@@ -123,12 +156,15 @@ void initIcons()
     VIC.spr_mcolor0 = COLOR_YELLOW;
 
     /* sprite 0 position */
-    VIC.spr_hi_x = 0x01;
-    VIC.spr0_x = 50;
-    VIC.spr0_y = 220;
+    VIC.spr_hi_x = (SPRITE_0_POS_X & 0x100) >> 8; 
+    VIC.spr0_x = SPRITE_0_POS_X & 0xFF;
+    VIC.spr0_y = SPRITE_0_POS_Y;
 }
 
 
+/**
+ * wait for a key pressed event
+ */
 void waitakey()
 {
     while (!kbhit())
@@ -137,6 +173,9 @@ void waitakey()
 }
 
 
+/**
+ * clear keyboard buffer
+ */
 void clearkey()
 {
     while (kbhit()) {
@@ -144,7 +183,9 @@ void clearkey()
     }
 }
 
-
+/**
+ * write opening information
+ */
 void renderTitle()
 {
     clrscr();
@@ -154,14 +195,20 @@ void renderTitle()
     textcolor(COLOR_YELLOW);
 
     cputs("Sweet80s\n\r");
-    cputs("--------\n\n\r");
+    cputs("--------\n\r");
 
     cputs("\n\r");
 }
 
 
+/**
+ * looking for image files on disk (i.e. file with name starting with '!')
+ */
 void buildFileList()
 {
+
+    const uint8_t fileHandle = 1;
+
     uint8_t result = 0;
     struct cbm_dirent entry;
 
@@ -169,7 +216,7 @@ void buildFileList()
     cputs("Reading image list from disk...\n\n\r");
 
     /* open directory list */
-    result = cbm_opendir(1, DEVICE_NUM, "$");
+    result = cbm_opendir(fileHandle, DEVICE_NUM, "$");
 
     /* verify operation result */
     if (result != 0) {
@@ -179,18 +226,22 @@ void buildFileList()
 
     /* check each directory entry */
     result = 0;
-    while ((result = cbm_readdir(1, &entry)) == 0) {
+    while ((result = cbm_readdir(fileHandle, &entry)) == 0) {
         if (entry.name[0] == '!') {
-            strncpy(files[filesIndex], entry.name, 17);
+            strncpy(files[filesIndex], entry.name, MAX_FILE_NAME_LEN);
             cprintf(" FOUND %s\n\r", files[filesIndex]);
             filesIndex++;
         }
     }
 
-    /* close directory lis */
-    cbm_closedir(1);
+    /* close directory list */
+    cbm_closedir(fileHandle);
 }
 
+
+/**
+ * program entry point
+ */
 int main() 
 {
     bool graphicsInitialized = false;
@@ -230,7 +281,7 @@ int main()
         clearkey();
 
         /* retrieve and render KOALA image from RAM */
-        renderKOA((uint8_t*)0x6000);
+        renderKOA();
 
         /* next file name */
         index++;

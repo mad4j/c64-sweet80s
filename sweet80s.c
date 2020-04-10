@@ -48,9 +48,8 @@
 #define SPRITE_0_POS_X               306
 #define SPRITE_0_POS_Y               220
 
-
-/* default disk drive */
-#define DEVICE_NUM                     8
+/* disk drive number */
+#define LAST_DEVICE_NUM_RAM_ADDRESS  186
 
 /* file system constants */
 #define MAX_FILES                     25
@@ -101,8 +100,11 @@ void initGraphics()
 /**
  * load an image stored using KOALA file format
  */
-uint32_t loadKOA(const char* fileName, uint8_t device)
+uint32_t loadKOA(const char* fileName)
 {
+    /* retrieve last used device number */
+    uint8_t device = PEEK(LAST_DEVICE_NUM_RAM_ADDRESS);
+
     int32_t result = 0;
 
     /* load image data at specific address ignoring embedded PRG info */
@@ -206,17 +208,19 @@ void renderTitle()
  */
 void buildFileList()
 {
-
     const uint8_t fileHandle = 1;
 
     uint8_t result = 0;
     struct cbm_dirent entry;
 
+    /* retrieve last used device number */
+    uint8_t device = PEEK(LAST_DEVICE_NUM_RAM_ADDRESS);
+
     /* what're doing */
     cputs("Reading image list from disk...\n\n\r");
 
     /* open directory list */
-    result = cbm_opendir(fileHandle, DEVICE_NUM, "$");
+    result = cbm_opendir(fileHandle, device, "$");
 
     /* verify operation result */
     if (result != 0) {
@@ -262,7 +266,7 @@ int main()
         VIC.spr_ena = 0x01;
 
         /* load Koala Image image file into RAM */
-        loadKOA(files[index%filesIndex], DEVICE_NUM);
+        loadKOA(files[index%filesIndex]);
 
         /* hide sprite 0 */
         VIC.spr_ena = 0x00;

@@ -15,7 +15,6 @@ d64:
 	@echo $(KOA_LIST)
 	c1541 -format $(OUT_NAME),AA d64 $(OUT_NAME).d64
 	c1541 -attach $(OUT_NAME).d64 -write $(OUT_NAME).prg $(OUT_NAME)
-	c1541 -attach $(OUT_NAME).d64 -write viewer.prg viewer
 	@for f in $(KOA_LIST) ; do \
 		c1541 -attach $(OUT_NAME).d64 -write $$f.koa !$$f ; \
 	done

@@ -8,13 +8,14 @@
  * see LINCESE file
  */
 
-
+/* cc65 specific libraries */
 #include <c64.h>
 #include <cbm.h>
 #include <peekpoke.h>
 #include <conio.h>
 #include <device.h>
 
+/* standard specific libraries */
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -44,16 +45,16 @@
 
 /* Sprite related infomration */
 #define SPRITE_MEMORY_SLOT_SIZE       64
-
 #define SPRITE_0_MEMORY_SLOT          13
+#define SPRITE_0_RAM_ADDRESS         (uint8_t*)(SPRITE_MEMORY_SLOT_SIZE*SPRITE_0_MEMORY_SLOT)
 #define SPRITE_0_POS_X               306
 #define SPRITE_0_POS_Y               220
 
-/* file system constants */
+/* File system constants */
 #define MAX_FILES                     25
 #define MAX_FILE_NAME_LEN             17
 
-/* names of image files on disk */
+/* Names of image files on disk */
 char files[MAX_FILES][MAX_FILE_NAME_LEN];
 uint8_t filesIndex = 0;
 
@@ -81,7 +82,7 @@ void initGraphics()
     /* enable multicolor graphic-mode */ 
     VIC.ctrl2 = 0x18;
 
-    /* location $D018 / 53272 set screen at $0400 and bitmap at $2000 TBV */
+    /* $D018/53272: set screen at $0400 and bitmap at $2000 */
     VIC.addr = 0x1F;
 
     /* set black background */
@@ -148,7 +149,7 @@ void initIcons()
     POKE(SPRITE_DATA_PTR_RAM_ADDRESS, SPRITE_0_MEMORY_SLOT);
 
     /* sprite 0 data */
-    memcpy(SPRITE_MEMORY_SLOT_SIZE*SPRITE_0_MEMORY_SLOT, floppy_bin, floppy_bin_len);
+    memcpy(SPRITE_0_RAM_ADDRESS, floppy_bin, floppy_bin_len);
 
     /* sprite 0 in multi-color */
     VIC.spr_mcolor = 0x01;

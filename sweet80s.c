@@ -13,6 +13,7 @@
 #include <cbm.h>
 #include <peekpoke.h>
 #include <conio.h>
+#include <device.h>
 
 #include <string.h>
 #include <stdint.h>
@@ -47,9 +48,6 @@
 #define SPRITE_0_MEMORY_SLOT          13
 #define SPRITE_0_POS_X               306
 #define SPRITE_0_POS_Y               220
-
-/* disk drive number */
-#define LAST_DEVICE_NUM_RAM_ADDRESS  186
 
 /* file system constants */
 #define MAX_FILES                     25
@@ -104,8 +102,8 @@ int32_t loadKOA(const char* fileName)
 {
     int32_t result = 0;
 
-    /* retrieve last used device number */
-    uint8_t device = PEEK(LAST_DEVICE_NUM_RAM_ADDRESS);
+    /* retrieve last used device number (as specified in location $00BA) */
+    uint8_t device = getcurrentdevice();
 
     /* load image data at specific address ignoring embedded PRG info */
     result = cbm_load(fileName, device, KOALA_RAM_ADDRESS);
@@ -215,8 +213,8 @@ void buildFileList()
     uint8_t result = 0;
     struct cbm_dirent entry;
 
-    /* retrieve last used device number */
-    uint8_t device = PEEK(LAST_DEVICE_NUM_RAM_ADDRESS);
+    /* retrieve last used device number (as specified in location $00BA) */
+    uint8_t device = getcurrentdevice();
 
     /* what're doing */
     cputs("Reading image list from disk...\n\n\r");

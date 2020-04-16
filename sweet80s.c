@@ -33,7 +33,7 @@
 #define KOALA_BKGCOL_LENGTH             1
 
 /* RAM address for file loading */
-#define KOALA_RAM_ADDRESS           ((uint8_t*)0x6000)
+#define KOALA_RAM_ADDRESS           ((uint8_t*)0x4000)
 
 /* Multi-color RAM addresses */
 #define BITMAP_RAM_ADDRESS          ((uint8_t*)0x2000)

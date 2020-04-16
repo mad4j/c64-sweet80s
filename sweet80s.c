@@ -21,17 +21,17 @@
 
 
 /* KOALA image file format */
-#define KAOLA_BITMAP_OFFSET             0
-#define KAOLA_BITMAP_LENGHT          8000
-#define KAOLA_SCREEN_OFFSET          8000
-#define KAOLA_SCREEN_LENGTH          1000
-#define KAOLA_COLMAP_OFFSET          9000
-#define KAOLA_COLMAP_LENGTH          1000
-#define KAOLA_BKGCOL_OFFSET         10000
-#define KAOLA_BKGCOL_LENGTH             1
+#define KOALA_BITMAP_OFFSET             0
+#define KOALA_BITMAP_LENGHT          8000
+#define KOALA_SCREEN_OFFSET          8000
+#define KOALA_SCREEN_LENGTH          1000
+#define KOALA_COLMAP_OFFSET          9000
+#define KOALA_COLMAP_LENGTH          1000
+#define KOALA_BKGCOL_OFFSET         10000
+#define KOALA_BKGCOL_LENGTH             1
 
-/* KOALA RAM address */
-#define KAOLA_RAM_ADDRESS           ((uint8_t*)0x6000)
+/* RAM address for file loading */
+#define KOALA_RAM_ADDRESS           ((uint8_t*)0x6000)
 
 /* Multi-color RAM addresses */
 #define BITMAP_RAM_ADDRESS          ((uint8_t*)0x2000)
@@ -83,7 +83,7 @@ void initGraphics()
     /* enable multicolor graphic-mode */ 
     VIC.ctrl2 = 0x18;
 
-    /* set screen at $0400 and bitmap at $2000 */
+    /* location $D018 / 53272 set screen at $0400 and bitmap at $2000 TBV */
     VIC.addr = 0x1F;
 
     /* set black background */
@@ -93,43 +93,45 @@ void initGraphics()
     VIC.bordercolor = COLOR_BLACK;
 
     /* clear bitmap area */
-    memset(BITMAP_RAM_ADDRESS, 0x00, KAOLA_BITMAP_LENGHT);
+    memset(BITMAP_RAM_ADDRESS, 0x00, KOALA_BITMAP_LENGHT);
 }
 
 
 /**
  * load an image stored using KOALA file format
  */
-uint32_t loadKOA(const char* fileName)
+int32_t loadKOA(const char* fileName)
 {
+    int32_t result = 0;
+
     /* retrieve last used device number */
     uint8_t device = PEEK(LAST_DEVICE_NUM_RAM_ADDRESS);
 
-    int32_t result = 0;
-
     /* load image data at specific address ignoring embedded PRG info */
-    result = cbm_load(fileName, device, KAOLA_RAM_ADDRESS);
+    result = cbm_load(fileName, device, KOALA_RAM_ADDRESS);
 
-    return (result == 0) ? _oserror : 0;
+    /* FIX: it seems that cbm_load returns always 0 */
+
+    return result;
 }
 
 
 /**
- * display a KAOLA image store in RAM
+ * display a KOALA image store in RAM
  */
 void renderKOA() 
 {
     /* load bitmap data */
-    memcpy(BITMAP_RAM_ADDRESS, KAOLA_RAM_ADDRESS+KAOLA_BITMAP_OFFSET, KAOLA_BITMAP_LENGHT);
+    memcpy(BITMAP_RAM_ADDRESS, KOALA_RAM_ADDRESS+KOALA_BITMAP_OFFSET, KOALA_BITMAP_LENGHT);
 
     /* load screen data */
-    memcpy(SCREEN_RAM_ADDRESS, KAOLA_RAM_ADDRESS+KAOLA_SCREEN_OFFSET, KAOLA_SCREEN_LENGTH);
+    memcpy(SCREEN_RAM_ADDRESS, KOALA_RAM_ADDRESS+KOALA_SCREEN_OFFSET, KOALA_SCREEN_LENGTH);
 
     /* load color map */
-    memcpy(COLMAP_RAM_ADDRESS, KAOLA_RAM_ADDRESS+KAOLA_COLMAP_OFFSET, KAOLA_COLMAP_LENGTH);
+    memcpy(COLMAP_RAM_ADDRESS, KOALA_RAM_ADDRESS+KOALA_COLMAP_OFFSET, KOALA_COLMAP_LENGTH);
 
     /* load background colour */
-    VIC.bgcolor0 = KAOLA_RAM_ADDRESS[KAOLA_BKGCOL_OFFSET];
+    VIC.bgcolor0 = KOALA_RAM_ADDRESS[KOALA_BKGCOL_OFFSET];
 
     /* set black border */ 
     VIC.bordercolor = COLOR_BLACK;
@@ -250,6 +252,7 @@ int main()
 {
     bool graphicsInitialized = false;
     uint8_t index = 0;
+    int32_t result = 0;
 
     /* write something cool */
     renderTitle();
@@ -266,7 +269,15 @@ int main()
         VIC.spr_ena = 0x01;
 
         /* load Koala Image image file into RAM */
-        loadKOA(files[index%filesIndex]);
+        result = loadKOA(files[index%filesIndex]);    
+
+        /* put image on screen only if on succesufully load */
+        if (result < 0) {
+            bordercolor(COLOR_RED);
+            continue;
+        } else {
+            bordercolor(COLOR_BLACK);
+        }
 
         /* hide sprite 0 */
         VIC.spr_ena = 0x00;
@@ -287,11 +298,11 @@ int main()
         /* retrieve and render KOALA image from RAM */
         renderKOA();
 
-        /* next file name */
-        index++;
-
         /* wait until a key is pressed */
         waitakey();
+
+        /* next file name */
+        index++;
     }
 
     /* done */

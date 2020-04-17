@@ -8,7 +8,9 @@
  * see LINCESE file
  */
 
+
 /* cc65 specific libraries */
+#include <6502.h>
 #include <c64.h>
 #include <cbm.h>
 #include <peekpoke.h>
@@ -16,11 +18,19 @@
 #include <device.h>
 
 /* standard specific libraries */
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <assert.h>
 
+
+/* return RAMO Bank number from memory absolute address */
+#define BANK_INDEX(X)               ((uint32_t)X / 0x4000)
+
+/* return offset within RAM Bank from absolute memory address */
+#define BANK_OFFSET(X)              ((uint32_t)X % 0x4000)
 
 /* KOALA image file format */
 #define KOALA_BITMAP_OFFSET             0
@@ -32,21 +42,18 @@
 #define KOALA_BKGCOL_OFFSET         10000
 #define KOALA_BKGCOL_LENGTH             1
 
-/* RAM address for file loading */
-#define KOALA_RAM_ADDRESS           ((uint8_t*)0x4000)
+#define KOALA_FILE_SIZE             10003
 
 /* Multi-color RAM addresses */
-#define BITMAP_RAM_ADDRESS          ((uint8_t*)0x2000)
-#define SCREEN_RAM_ADDRESS          ((uint8_t*)0x0400)
+#define BITMAP_RAM_ADDRESS          ((uint8_t*)0xE000)
+#define SCREEN_RAM_ADDRESS          ((uint8_t*)0xD000)
 #define COLMAP_RAM_ADDRESS          ((uint8_t*)0xD800)
 
 /* Sprite data pointers base address*/
 #define SPRITE_DATA_PTR_RAM_ADDRESS (SCREEN_RAM_ADDRESS+1016)
 
 /* Sprite related infomration */
-#define SPRITE_MEMORY_SLOT_SIZE       64
-#define SPRITE_0_MEMORY_SLOT          13
-#define SPRITE_0_RAM_ADDRESS         (uint8_t*)(SPRITE_MEMORY_SLOT_SIZE*SPRITE_0_MEMORY_SLOT)
+#define SPRITE_0_RAM_ADDRESS         (uint8_t*)(0xFFC0)
 #define SPRITE_0_POS_X               306
 #define SPRITE_0_POS_Y               220
 
@@ -71,11 +78,18 @@ unsigned char floppy_bin[] = {
 unsigned int floppy_bin_len = 64;
 
 
+uint8_t* koalaBuffer = 0;
+
+
 /**
  * initialize multi-color graphic mode
  */
 void initGraphics()
 {
+
+    CIA2.ddra |= 0x03;
+    CIA2.pra &= 0xFC;
+
     /* enable bitmap mode */
     VIC.ctrl1 = 0x3B;
 
@@ -83,7 +97,9 @@ void initGraphics()
     VIC.ctrl2 = 0x18;
 
     /* $D018/53272: set screen at $0400 and bitmap at $2000 */
-    VIC.addr = 0x1F;
+    //VIC.addr = 0x1F;
+
+    VIC.addr = 0x48;
 
     /* set black background */
     VIC.bgcolor0 = COLOR_BLACK;
@@ -107,7 +123,7 @@ int32_t loadKOA(const char* fileName)
     uint8_t device = getcurrentdevice();
 
     /* load image data at specific address ignoring embedded PRG info */
-    result = cbm_load(fileName, device, KOALA_RAM_ADDRESS);
+    result = cbm_load(fileName, device, koalaBuffer);
 
     /* FIX: it seems that cbm_load returns always 0 */
 
@@ -120,17 +136,32 @@ int32_t loadKOA(const char* fileName)
  */
 void renderKOA() 
 {
+
+    uint8_t temp = 0;
+
     /* load bitmap data */
-    memcpy(BITMAP_RAM_ADDRESS, KOALA_RAM_ADDRESS+KOALA_BITMAP_OFFSET, KOALA_BITMAP_LENGHT);
+    memcpy(BITMAP_RAM_ADDRESS, koalaBuffer+KOALA_BITMAP_OFFSET, KOALA_BITMAP_LENGHT);
+
+    temp = PEEK(0x0001);
+
+    SEI();
+
+    /* enable RAM access in the following memory areas $A000-$BFFF, $D000-$DFFF and $E000-$FFFF */
+    POKE(0x0001, temp & 0xFC);
 
     /* load screen data */
-    memcpy(SCREEN_RAM_ADDRESS, KOALA_RAM_ADDRESS+KOALA_SCREEN_OFFSET, KOALA_SCREEN_LENGTH);
+    memcpy(SCREEN_RAM_ADDRESS, koalaBuffer+KOALA_SCREEN_OFFSET, KOALA_SCREEN_LENGTH);
+
+    POKE(0x0001, temp);
+
+    CLI();
+
 
     /* load color map */
-    memcpy(COLMAP_RAM_ADDRESS, KOALA_RAM_ADDRESS+KOALA_COLMAP_OFFSET, KOALA_COLMAP_LENGTH);
+    memcpy(COLMAP_RAM_ADDRESS, koalaBuffer+KOALA_COLMAP_OFFSET, KOALA_COLMAP_LENGTH);
 
     /* load background colour */
-    VIC.bgcolor0 = KOALA_RAM_ADDRESS[KOALA_BKGCOL_OFFSET];
+    VIC.bgcolor0 = koalaBuffer[KOALA_BKGCOL_OFFSET];
 
     /* set black border */ 
     VIC.bordercolor = COLOR_BLACK;
@@ -142,14 +173,22 @@ void renderKOA()
  */
 void initIcons()
 {
+    uint8_t temp = 0;
+
     /* hide sprite 0 */
     VIC.spr_ena = 0x00;
 
+    temp = PEEK(0x0001);
+    SEI();
+
     /* update sprite 0 data memory pointer */
-    POKE(SPRITE_DATA_PTR_RAM_ADDRESS, SPRITE_0_MEMORY_SLOT);
+    POKE(SPRITE_DATA_PTR_RAM_ADDRESS, BANK_OFFSET(SPRITE_0_RAM_ADDRESS) / 64); 
 
     /* sprite 0 data */
     memcpy(SPRITE_0_RAM_ADDRESS, floppy_bin, floppy_bin_len);
+
+    POKE(0x0001, temp);
+    CLI();
 
     /* sprite 0 in multi-color */
     VIC.spr_mcolor = 0x01;
@@ -252,6 +291,12 @@ int main()
     bool graphicsInitialized = false;
     uint8_t index = 0;
     int32_t result = 0;
+
+    /* verify coherence of RAM address assignments */
+    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(BITMAP_RAM_ADDRESS));
+    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(SPRITE_0_RAM_ADDRESS));
+
+    koalaBuffer = malloc(KOALA_FILE_SIZE);
 
     /* write something cool */
     renderTitle();

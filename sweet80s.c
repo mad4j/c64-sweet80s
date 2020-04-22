@@ -23,10 +23,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <errno.h>
-#include <assert.h>
 
 
-/* return RAMO Bank number from memory absolute address */
+/* return RAM Bank number from memory absolute address */
 #define BANK_INDEX(X)               ((uint32_t)X / 0x4000)
 
 /* return offset within RAM Bank from absolute memory address */
@@ -67,7 +66,7 @@ uint8_t filesIndex = 0;
 
 
 /* FLOPPY Icon sprite data */
-unsigned char floppy_bin[] = {
+static const unsigned char floppy_bin[] = {
   0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x56, 0x55, 0x55, 0x56,
   0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x69, 0x55,
   0x55, 0x96, 0x55, 0x55, 0x96, 0x55, 0x55, 0x96, 0x55, 0x55, 0x69, 0x55,
@@ -75,10 +74,10 @@ unsigned char floppy_bin[] = {
   0x55, 0x69, 0x55, 0x55, 0x69, 0x55, 0x55, 0x69, 0x55, 0x55, 0x55, 0x55,
   0x55, 0x55, 0x55, 0x00
 };
-unsigned int floppy_bin_len = 64;
+static const unsigned int floppy_bin_len = 64;
 
 
-uint8_t* koalaBuffer = 0;
+static const uint8_t* koalaBuffer = 0;
 
 
 /**
@@ -86,7 +85,7 @@ uint8_t* koalaBuffer = 0;
  */
 void initGraphics()
 {
-
+    /* activate memory Bank 3 */
     CIA2.ddra |= 0x03;
     CIA2.pra &= 0xFC;
 
@@ -96,15 +95,13 @@ void initGraphics()
     /* enable multicolor graphic-mode */ 
     VIC.ctrl2 = 0x18;
 
-    /* $D018/53272: set screen at $0400 and bitmap at $2000 */
-    //VIC.addr = 0x1F;
-
+    /* $D018/53272: set screen at $D000 and bitmap at $E000 */
     VIC.addr = 0x48;
 
-    /* set black background */
+    /* $D021/53281: set black background */
     VIC.bgcolor0 = COLOR_BLACK;
 
-    /* set black border */ 
+    /* $D020/53280: set black border */ 
     VIC.bordercolor = COLOR_BLACK;
 
     /* clear bitmap area */
@@ -142,8 +139,10 @@ void renderKOA()
     /* load bitmap data */
     memcpy(BITMAP_RAM_ADDRESS, koalaBuffer+KOALA_BITMAP_OFFSET, KOALA_BITMAP_LENGHT);
 
+    /* store memeory access flags */
     temp = PEEK(0x0001);
 
+    /* disable interrupts */
     SEI();
 
     /* enable RAM access in the following memory areas $A000-$BFFF, $D000-$DFFF and $E000-$FFFF */
@@ -152,8 +151,10 @@ void renderKOA()
     /* load screen data */
     memcpy(SCREEN_RAM_ADDRESS, koalaBuffer+KOALA_SCREEN_OFFSET, KOALA_SCREEN_LENGTH);
 
+    /* restore previous memory access flags */
     POKE(0x0001, temp);
 
+    /* enable interrupts */
     CLI();
 
 
@@ -292,17 +293,21 @@ int main()
     uint8_t index = 0;
     int32_t result = 0;
 
-    /* verify coherence of RAM address assignments */
-    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(BITMAP_RAM_ADDRESS));
-    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(SPRITE_0_RAM_ADDRESS));
-
+    /* initialize image memory buffer */
     koalaBuffer = malloc(KOALA_FILE_SIZE);
 
-    /* write something cool */
-    renderTitle();
+    /* verify coherence of RAM address assignments */
+//    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(BITMAP_RAM_ADDRESS));
+//    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(SPRITE_0_RAM_ADDRESS));
+
+    
+    
 
     /* initializa icons graphics */
     initIcons();
+
+    /* write something cool */
+    renderTitle();
 
     /* looking for images on disk */
     buildFileList();

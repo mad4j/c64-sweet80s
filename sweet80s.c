@@ -81,8 +81,8 @@ static const unsigned int floppy_bin_len = 64;
 /* pointer to KOALA data buffer */
 static const uint8_t* koalaBuffer = 0;
 
-/* pointer to GZIP data buffer */
-static const uint8_t* gzipBuffer = 0;
+/* pointer to ZZ data buffer */
+static const uint8_t* zzBuffer = 0;
 
 
 /**
@@ -129,11 +129,11 @@ int32_t loadKOA(const char* fileName)
 
     /* FIX: it seems that cbm_load returns always 0 */
 
-    return (result == 0) ? Z_DATA_ERROR : Z_OK;
+    return result;
 }
 
 
-int32_t loadGZIP(const char* fileName)
+int32_t loadZZ(const char* fileName)
 {
     int32_t result = 0;
 
@@ -141,13 +141,13 @@ int32_t loadGZIP(const char* fileName)
     uint8_t device = getcurrentdevice();
 
     /* load compressed data at specific address ignoring embedded PRG info */
-    result = cbm_load(fileName, device, gzipBuffer);
+    result = cbm_load(fileName, device, zzBuffer);
 
     /* FIX: it seems that cbm_load returns always 0 */
 
-    result = inflatemem((unsigned char*)koalaBuffer, (const unsigned char*)gzipBuffer);
+    result = inflatemem((unsigned char*)koalaBuffer, (const unsigned char*)zzBuffer);
 
-    return result;
+    return (result == 0) ? Z_DATA_ERROR : Z_OK;
 }
 
 
@@ -156,7 +156,6 @@ int32_t loadGZIP(const char* fileName)
  */
 void renderKOA() 
 {
-
     uint8_t temp = 0;
 
     /* load bitmap data */
@@ -179,7 +178,6 @@ void renderKOA()
 
     /* enable interrupts */
     CLI();
-
 
     /* load color map */
     memcpy(COLMAP_RAM_ADDRESS, koalaBuffer+KOALA_COLMAP_OFFSET, KOALA_COLMAP_LENGTH);
@@ -268,6 +266,9 @@ void renderTitle()
     cputs("--------\n\r");
 
     cputs("\n\r");
+
+    cprintf("K %p\n\r", koalaBuffer);
+    cprintf("Z %p\n\r", zzBuffer);
 }
 
 
@@ -299,7 +300,7 @@ void buildFileList()
     /* check each directory entry */
     result = 0;
     while ((result = cbm_readdir(fileHandle, &entry)) == 0) {
-        /* looking for KOALA '!' or GZIP '%' files */
+        /* looking for KOALA '!' or ZZ '%' files */
         if ((entry.name[0] == '!') || (entry.name[0] == '%')) {
             strncpy(files[filesIndex], entry.name, MAX_FILE_NAME_LEN);
             cprintf(" FOUND %s\n\r", files[filesIndex]);
@@ -325,9 +326,9 @@ int main()
     /* initialize KAOLA data buffer */
     koalaBuffer = malloc(KOALA_FILE_SIZE);
 
-    /* initialize GZIP data buffer */
-    gzipBuffer = malloc(KOALA_FILE_SIZE);
-
+    /* initialize ZZ data buffer */
+    zzBuffer = malloc(KOALA_FILE_SIZE);
+    
     /* write something cool */
     renderTitle();
 
@@ -346,7 +347,7 @@ int main()
 
         if (fileName[0] == '%') {
             /* load Koala image as compressed file into RAM */
-            result = loadGZIP(fileName);    
+            result = loadZZ(fileName);    
         } else {
             /* load Koala image file into RAM */
             result = loadKOA(fileName);    

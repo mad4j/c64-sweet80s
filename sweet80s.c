@@ -44,6 +44,7 @@
 #define KOALA_FILE_SIZE             10003
 
 /* Multi-color RAM addresses */
+/* verify coherence of RAM address assignments (i.e. all addresses whitin the same memory bank) */
 #define BITMAP_RAM_ADDRESS          ((uint8_t*)0xE000)
 #define SCREEN_RAM_ADDRESS          ((uint8_t*)0xD000)
 #define COLMAP_RAM_ADDRESS          ((uint8_t*)0xD800)
@@ -76,7 +77,7 @@ static const unsigned char floppy_bin[] = {
 };
 static const unsigned int floppy_bin_len = 64;
 
-
+/* pointer to KOALA data memory buffer */
 static const uint8_t* koalaBuffer = 0;
 
 
@@ -89,10 +90,10 @@ void initGraphics()
     CIA2.ddra |= 0x03;
     CIA2.pra &= 0xFC;
 
-    /* enable bitmap mode */
+    /* $D011/53265: enable bitmap mode */
     VIC.ctrl1 = 0x3B;
 
-    /* enable multicolor graphic-mode */ 
+    /* $D016/53270: enable multicolor graphic-mode */ 
     VIC.ctrl2 = 0x18;
 
     /* $D018/53272: set screen at $D000 and bitmap at $E000 */
@@ -180,6 +181,8 @@ void initIcons()
     VIC.spr_ena = 0x00;
 
     temp = PEEK(0x0001);
+
+    /* disable interrupts */
     SEI();
 
     /* update sprite 0 data memory pointer */
@@ -189,6 +192,8 @@ void initIcons()
     memcpy(SPRITE_0_RAM_ADDRESS, floppy_bin, floppy_bin_len);
 
     POKE(0x0001, temp);
+
+    /* re-enable interrupts */
     CLI();
 
     /* sprite 0 in multi-color */
@@ -295,13 +300,6 @@ int main()
 
     /* initialize image memory buffer */
     koalaBuffer = malloc(KOALA_FILE_SIZE);
-
-    /* verify coherence of RAM address assignments */
-//    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(BITMAP_RAM_ADDRESS));
-//    assert(BANK_INDEX(SCREEN_RAM_ADDRESS) == BANK_INDEX(SPRITE_0_RAM_ADDRESS));
-
-    
-    
 
     /* initializa icons graphics */
     initIcons();

@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <zlib.h>
 
 
 /* return RAM Bank number from memory absolute address */
@@ -77,8 +78,11 @@ static const unsigned char floppy_bin[] = {
 };
 static const unsigned int floppy_bin_len = 64;
 
-/* pointer to KOALA data memory buffer */
+/* pointer to KOALA data buffer */
 static const uint8_t* koalaBuffer = 0;
+
+/* pointer to GZIP data buffer */
+static const uint8_t* gzipBuffer = 0;
 
 
 /**
@@ -117,13 +121,31 @@ int32_t loadKOA(const char* fileName)
 {
     int32_t result = 0;
 
-    /* retrieve last used device number (as specified in location $00BA) */
+    /* retrieve last used device number (as specified in location $00BA/186) */
     uint8_t device = getcurrentdevice();
 
     /* load image data at specific address ignoring embedded PRG info */
     result = cbm_load(fileName, device, koalaBuffer);
 
     /* FIX: it seems that cbm_load returns always 0 */
+
+    return (result == 0) ? Z_DATA_ERROR : Z_OK;
+}
+
+
+int32_t loadGZIP(const char* fileName)
+{
+    int32_t result = 0;
+
+    /* retrieve last used device number (as specified in location $00BA/186) */
+    uint8_t device = getcurrentdevice();
+
+    /* load compressed data at specific address ignoring embedded PRG info */
+    result = cbm_load(fileName, device, gzipBuffer);
+
+    /* FIX: it seems that cbm_load returns always 0 */
+
+    result = inflatemem((unsigned char*)koalaBuffer, (const unsigned char*)gzipBuffer);
 
     return result;
 }
@@ -277,7 +299,8 @@ void buildFileList()
     /* check each directory entry */
     result = 0;
     while ((result = cbm_readdir(fileHandle, &entry)) == 0) {
-        if (entry.name[0] == '!') {
+        /* looking for KOALA '!' or GZIP '%' files */
+        if ((entry.name[0] == '!') || (entry.name[0] == '%')) {
             strncpy(files[filesIndex], entry.name, MAX_FILE_NAME_LEN);
             cprintf(" FOUND %s\n\r", files[filesIndex]);
             filesIndex++;
@@ -295,14 +318,15 @@ void buildFileList()
 int main() 
 {
     bool graphicsInitialized = false;
+    const char* fileName = 0;
     uint8_t index = 0;
     int32_t result = 0;
 
-    /* initialize image memory buffer */
+    /* initialize KAOLA data buffer */
     koalaBuffer = malloc(KOALA_FILE_SIZE);
 
-    /* initializa icons graphics */
-    initIcons();
+    /* initialize GZIP data buffer */
+    gzipBuffer = malloc(KOALA_FILE_SIZE);
 
     /* write something cool */
     renderTitle();
@@ -310,13 +334,23 @@ int main()
     /* looking for images on disk */
     buildFileList();
 
+    /* initializa icons graphics */
+    initIcons();
+
     while (true) {
 
         /* show sprite 0 */
         VIC.spr_ena = 0x01;
 
-        /* load Koala Image image file into RAM */
-        result = loadKOA(files[index%filesIndex]);    
+        fileName = files[index%filesIndex];
+
+        if (fileName[0] == '%') {
+            /* load Koala image as compressed file into RAM */
+            result = loadGZIP(fileName);    
+        } else {
+            /* load Koala image file into RAM */
+            result = loadKOA(fileName);    
+        }
 
         /* put image on screen only if on succesufully load */
         if (result < 0) {

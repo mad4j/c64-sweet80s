@@ -266,9 +266,6 @@ void renderTitle()
     cputs("--------\n\r");
 
     cputs("\n\r");
-
-    cprintf("K %p\n\r", koalaBuffer);
-    cprintf("Z %p\n\r", zzBuffer);
 }
 
 

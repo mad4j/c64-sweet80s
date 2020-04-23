@@ -3,7 +3,7 @@
  * https://github.com/mad4j/c64-sweet80s
  * 
  * compile using:
- *     cl65 -t c64 -O sweet80sc -o sweet80s.prg
+ *     cl65 -t c64 -O sweet80s.c -o sweet80s.prg
  * 
  * see LINCESE file
  */
@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 #include <errno.h>
 #include <zlib.h>
 
@@ -233,11 +234,15 @@ void initIcons()
 /**
  * wait for a key pressed event
  */
-void waitakey()
+void waitakey(uint32_t timeout)
 {
-    while (!kbhit())
-        ;
-    cgetc();
+
+    uint32_t secs = 0;
+    uint32_t limit = CLOCKS_PER_SEC*timeout;
+
+    while ((!kbhit()) && (secs++ < limit)) {
+        waitvsync();
+    }
 }
 
 
@@ -378,7 +383,7 @@ int main()
         renderKOA();
 
         /* wait until a key is pressed */
-        waitakey();
+        waitakey(60);
 
         /* next file name */
         index++;

@@ -28,10 +28,10 @@
 
 
 /* return RAM Bank number from memory absolute address */
-#define BANK_INDEX(X)               ((uint32_t)X / 0x4000)
+#define BANK_INDEX(X)               ((uint16_t)X / 0x4000)
 
 /* return offset within RAM Bank from absolute memory address */
-#define BANK_OFFSET(X)              ((uint32_t)X % 0x4000)
+#define BANK_OFFSET(X)              ((uint16_t)X % 0x4000)
 
 /* KOALA image file format */
 #define KOALA_BITMAP_OFFSET             0
@@ -51,6 +51,9 @@
 #define SCREEN_RAM_ADDRESS          ((uint8_t*)0xD000)
 #define COLMAP_RAM_ADDRESS          ((uint8_t*)0xD800)
 
+/* Text mode RAM addresses */
+#define CHRMAP_RAM_ADDRESS          BITMAP_RAM_ADDRESS
+
 /* Sprite data pointers base address*/
 #define SPRITE_DATA_PTR_RAM_ADDRESS (SCREEN_RAM_ADDRESS+1016)
 
@@ -58,6 +61,11 @@
 #define SPRITE_0_RAM_ADDRESS         (uint8_t*)(0xFFC0)
 #define SPRITE_0_POS_X               306
 #define SPRITE_0_POS_Y               220
+
+#define PAL_REFRESH_RATE              50
+#define NTSC_REFRESH_RATE             60
+#define VIDEO_REFRESH_RATE           PAL_REFRESH_RATE
+
 
 /* File system constants */
 #define MAX_FILES                     25
@@ -86,14 +94,69 @@ static const uint8_t* koalaBuffer = 0;
 static const uint8_t* zzBuffer = 0;
 
 
+void initTextMode()
+{
+    uint8_t b1 = 0;
+    uint8_t b2 = 0;
+    uint8_t temp = 0;
+
+    //copy char rom in bank area ??
+
+    /* store memeory access flags */
+    temp = PEEK(0x0001);
+
+    /* disable interrupts */
+    SEI();
+
+    /* enable RAM access in the following memory areas $A000-$BFFF, $D000-$DFFF and $E000-$FFFF */
+    POKE(0x0001, temp & 0xFC);
+
+    //memcpy(CHRMAP_RAM_ADDRESS, 0x1000, 4096);
+    memset(CHRMAP_RAM_ADDRESS, 0xAA, 4096);
+
+    /* restore previous memory access flags */
+    POKE(0x0001, temp);
+
+    /* enable interrupts */
+    CLI();
+
+
+    /* $DD02/56578: VICII Port A Direction register */
+    /* enable write on bits 0-1 */
+    CIA2.ddra |= 0x03;
+
+    /* $DD00/56576: VICII Port A Data register */
+    /* activate memory Bank 3 leaving other informations unchanged */
+    CIA2.pra = (CIA2.pra & 0xFC) | (! BANK_INDEX(SCREEN_RAM_ADDRESS));
+
+    /* $D018/53272: set screen at $D000 and character memory at $E000 */
+    b1 = BANK_OFFSET(CHRMAP_RAM_ADDRESS) / 0x0800;
+    b2 = BANK_OFFSET(SCREEN_RAM_ADDRESS) / 0x0400;
+    VIC.addr = (b2 << 4) | (b1 << 1);
+
+
+    /* $D011/53265: enable text mode */
+    //VIC.ctrl1 &= (!0x20);
+
+    /* $0288/648: High byte of pointer to screen memory for KERNAL usage */
+    /* tell the KERNAL where is located SCREEN memory */
+    //POKE(0x0288, ((uint16_t)SCREEN_RAM_ADDRESS & 0xFF00) >> 8);
+}
+
+
+
 /**
  * initialize multi-color graphic mode
  */
-void initGraphics()
+void initGraphicsMode()
 {
-    /* activate memory Bank 3 */
+    /* $DD02/56578: VICII Port A Direction register */
+    /* enable write on bits 0-1 */
     CIA2.ddra |= 0x03;
-    CIA2.pra &= 0xFC;
+
+    /* $DD00/56576: VICII Port A Data register */
+    /* activate memory Bank 3 leaving other informations unchanged */
+    CIA2.pra = (CIA2.pra & 0xFC) | (! BANK_INDEX(SCREEN_RAM_ADDRESS));
 
     /* $D011/53265: enable bitmap mode */
     VIC.ctrl1 = 0x3B;
@@ -134,6 +197,7 @@ int32_t loadKOA(const char* fileName)
 }
 
 
+/* load an image stored as deflated (i.e. compressed file) */
 int32_t loadZZ(const char* fileName)
 {
     int32_t result = 0;
@@ -146,6 +210,7 @@ int32_t loadZZ(const char* fileName)
 
     /* FIX: it seems that cbm_load returns always 0 */
 
+    /* inflate compressed data */
     result = inflatemem((unsigned char*)koalaBuffer, (const unsigned char*)zzBuffer);
 
     return (result == 0) ? Z_DATA_ERROR : Z_OK;
@@ -236,10 +301,10 @@ void initIcons()
  */
 void waitakey(uint32_t timeout)
 {
-
     uint32_t secs = 0;
-    uint32_t limit = CLOCKS_PER_SEC*timeout;
+    uint32_t limit = VIDEO_REFRESH_RATE*timeout;
 
+    /* wait until a key is pressed or ellapsed timeout seconds */
     while ((!kbhit()) && (secs++ < limit)) {
         waitvsync();
     }
@@ -331,6 +396,11 @@ int main()
     /* initialize ZZ data buffer */
     zzBuffer = malloc(KOALA_FILE_SIZE);
     
+
+
+    initTextMode();
+
+
     /* write something cool */
     renderTitle();
 
@@ -373,7 +443,7 @@ int main()
             graphicsInitialized = true;
 
             /* initialize multi-color graphics mode */
-            initGraphics();
+            initGraphicsMode();
         }
 
         /* empty keyboard buffer */

@@ -15,7 +15,7 @@ ZZ_LIST := ${patsubst %.koa.zz,%,$(wildcard *.koa.zz)}
 
 .PHONY: all zip d64 prg clean
 
-all: zip prg d64
+all: prg zip d64
 
 zip:
 	@for f in $(KOA_LIST) ; do \

@@ -10,7 +10,7 @@ ZZ_LIST := ${patsubst %.koa.zz,%,$(wildcard *.koa.zz)}
 ## 2. printf "\x01\02" | cat - temp1.tmp > temp2.tmp
 ## 3. tail -c +11 temp2.tmp | head -c -8 > ylenia3.koa.zz
 ## 4. rm temp1.tmp temp2.tmp
-## Method TOW:
+## Method TWO:
 ## 1. tail -c +3 ylenia3.koa | zlib-flate -compress > ylenia3.koa.zz
 
 .PHONY: all zip d64 prg clean

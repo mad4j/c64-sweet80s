@@ -94,57 +94,6 @@ static const uint8_t* koalaBuffer = 0;
 static const uint8_t* zzBuffer = 0;
 
 
-void initTextMode()
-{
-    uint8_t b1 = 0;
-    uint8_t b2 = 0;
-    uint8_t temp = 0;
-
-    //copy char rom in bank area ??
-
-    /* store memeory access flags */
-    temp = PEEK(0x0001);
-
-    /* disable interrupts */
-    SEI();
-
-    /* enable RAM access in the following memory areas $A000-$BFFF, $D000-$DFFF and $E000-$FFFF */
-    POKE(0x0001, temp & 0xFC);
-
-    //memcpy(CHRMAP_RAM_ADDRESS, 0x1000, 4096);
-    memset(CHRMAP_RAM_ADDRESS, 0xAA, 4096);
-
-    /* restore previous memory access flags */
-    POKE(0x0001, temp);
-
-    /* enable interrupts */
-    CLI();
-
-
-    /* $DD02/56578: VICII Port A Direction register */
-    /* enable write on bits 0-1 */
-    CIA2.ddra |= 0x03;
-
-    /* $DD00/56576: VICII Port A Data register */
-    /* activate memory Bank 3 leaving other informations unchanged */
-    CIA2.pra = (CIA2.pra & 0xFC) | (! BANK_INDEX(SCREEN_RAM_ADDRESS));
-
-    /* $D018/53272: set screen at $D000 and character memory at $E000 */
-    b1 = BANK_OFFSET(CHRMAP_RAM_ADDRESS) / 0x0800;
-    b2 = BANK_OFFSET(SCREEN_RAM_ADDRESS) / 0x0400;
-    VIC.addr = (b2 << 4) | (b1 << 1);
-
-
-    /* $D011/53265: enable text mode */
-    //VIC.ctrl1 &= (!0x20);
-
-    /* $0288/648: High byte of pointer to screen memory for KERNAL usage */
-    /* tell the KERNAL where is located SCREEN memory */
-    //POKE(0x0288, ((uint16_t)SCREEN_RAM_ADDRESS & 0xFF00) >> 8);
-}
-
-
-
 /**
  * initialize multi-color graphic mode
  */
@@ -271,11 +220,21 @@ void initIcons()
     /* disable interrupts */
     SEI();
 
+    /* copy sprite data in target memory area */
+
     /* update sprite 0 data memory pointer */
     POKE(SPRITE_DATA_PTR_RAM_ADDRESS, BANK_OFFSET(SPRITE_0_RAM_ADDRESS) / 64); 
-
     /* sprite 0 data */
     memcpy(SPRITE_0_RAM_ADDRESS, floppy_bin, floppy_bin_len);
+
+
+    /* mirror sprite data in text mode area */
+
+    /* update sprite 0 data memory pointer */
+    POKE(0x400+1016, BANK_OFFSET(SPRITE_0_RAM_ADDRESS) / 64); 
+    /* sprite 0 data */
+    memcpy(BANK_OFFSET(SPRITE_0_RAM_ADDRESS), floppy_bin, floppy_bin_len);
+
 
     POKE(0x0001, temp);
 
@@ -395,11 +354,9 @@ int main()
 
     /* initialize ZZ data buffer */
     zzBuffer = malloc(KOALA_FILE_SIZE);
-    
 
-
-    initTextMode();
-
+    /* initializa icons graphics */
+    initIcons();
 
     /* write something cool */
     renderTitle();
@@ -407,9 +364,7 @@ int main()
     /* looking for images on disk */
     buildFileList();
 
-    /* initializa icons graphics */
-    initIcons();
-
+    
     while (true) {
 
         /* show sprite 0 */

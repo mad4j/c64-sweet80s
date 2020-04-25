@@ -121,9 +121,6 @@ void initGraphicsMode()
 
     /* $D020/53280: set black border */ 
     VIC.bordercolor = COLOR_BLACK;
-
-    /* clear bitmap area */
-    memset(BITMAP_RAM_ADDRESS, 0x00, KOALA_BITMAP_LENGHT);
 }
 
 
@@ -210,18 +207,10 @@ void renderKOA()
  */
 void initIcons()
 {
-    uint8_t temp = 0;
-
     /* hide sprite 0 */
     VIC.spr_ena = 0x00;
 
-    temp = PEEK(0x0001);
-
-    /* disable interrupts */
-    SEI();
-
     /* copy sprite data in target memory area */
-
     /* update sprite 0 data memory pointer */
     POKE(SPRITE_DATA_PTR_RAM_ADDRESS, BANK_OFFSET(SPRITE_0_RAM_ADDRESS) / 64); 
     /* sprite 0 data */
@@ -229,17 +218,10 @@ void initIcons()
 
 
     /* mirror sprite data in text mode area */
-
     /* update sprite 0 data memory pointer */
     POKE(0x400+1016, BANK_OFFSET(SPRITE_0_RAM_ADDRESS) / 64); 
     /* sprite 0 data */
     memcpy(BANK_OFFSET(SPRITE_0_RAM_ADDRESS), floppy_bin, floppy_bin_len);
-
-
-    POKE(0x0001, temp);
-
-    /* re-enable interrupts */
-    CLI();
 
     /* sprite 0 in multi-color */
     VIC.spr_mcolor = 0x01;

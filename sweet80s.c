@@ -4,7 +4,8 @@
  * 
  * compile using:
  *     cl65 -t c64 -O sweet80s.c -o sweet80s.prg
- * 
+ *
+ * Daniele Olmisani <daniele.olmisani@gmail.com> 
  * see LINCESE file
  */
 
@@ -17,7 +18,7 @@
 #include <conio.h>
 #include <device.h>
 
-/* standard specific libraries */
+/* standard libraries */
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -341,7 +342,7 @@ int main()
     /* initialize ZZ data buffer */
     zzBuffer = malloc(KOALA_FILE_SIZE);
 
-    /* initializa icons graphics */
+    /* initialize icons graphics */
     initIcons();
 
     /* write something cool */

@@ -210,18 +210,22 @@ void initIcons()
     /* hide sprite 0 */
     VIC.spr_ena = 0x00;
 
+    SEI();
+
     /* copy sprite data in target memory area */
     /* update sprite 0 data memory pointer */
     POKE(SPRITE_DATA_PTR_RAM_ADDRESS, BANK_OFFSET(SPRITE_0_RAM_ADDRESS) / 64); 
     /* sprite 0 data */
     memcpy(SPRITE_0_RAM_ADDRESS, floppy_bin, floppy_bin_len);
 
-
+    
     /* mirror sprite data in text mode area */
     /* update sprite 0 data memory pointer */
     POKE(0x400+1016, BANK_OFFSET(SPRITE_0_RAM_ADDRESS) / 64); 
     /* sprite 0 data */
     memcpy(BANK_OFFSET(SPRITE_0_RAM_ADDRESS), floppy_bin, floppy_bin_len);
+
+    CLI();
 
     /* sprite 0 in multi-color */
     VIC.spr_mcolor = 0x01;
